@@ -5,5 +5,4 @@ vendor/
 .corsor/
 GEMINI.md
 CLAUDE.md
-AGENTS.md
 .php-cs-fixer.cache
