@@ -1,0 +1,9 @@
+vendor/
+.idea/
+.gemini/
+.claude/
+.corsor/
+GEMINI.md
+CLAUDE.md
+AGENTS.md
+.php-cs-fixer.cache

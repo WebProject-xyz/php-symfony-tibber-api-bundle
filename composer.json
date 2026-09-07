@@ -1,0 +1,63 @@
+{
+  "name": "webproject-xyz/php-package-template",
+  "description": "php-package-description",
+  "license": "MIT",
+  "type": "library",
+  "authors": [
+    {
+      "name": "Benjamin Fahl",
+      "email": "ben+github@webproject.xyz",
+      "role": "developer"
+    }
+  ],
+  "homepage": "https://www.webproject.xyz",
+  "require": {
+    "php": "~8.5.0"
+  },
+  "require-dev": {
+    "codeception/codeception": "^5.3.5",
+    "codeception/module-asserts": "^3.3.0",
+    "friendsofphp/php-cs-fixer": "^3.95.24",
+    "phpro/grumphp": "^2.23.0",
+    "phpstan/phpstan": "^2.2.13",
+    "roave/security-advisories": "dev-latest",
+    "webproject-xyz/codeception-module-ai-reporter": "^2.0.1",
+    "webproject-xyz/php-cs-fixer-config": "^1.1"
+  },
+  "autoload": {
+    "psr-4": {
+      "WebProject\\PhpPackageTemplate\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "WebProject\\PhpPackageTemplate\\Tests\\": "tests/"
+    }
+  },
+  "config": {
+    "allow-plugins": {
+      "composer/package-versions-deprecated": true,
+      "phpro/grumphp": true,
+      "phpstan/extension-installer": true
+    },
+    "optimize-autoloader": true,
+    "platform": {
+      "php": "8.5.0"
+    },
+    "sort-packages": true
+  },
+  "scripts": {
+    "cs:check": "XDEBUG_MODE=off php-cs-fixer fix --allow-risky=yes --dry-run --diff --show-progress=dots",
+    "cs:fix": "XDEBUG_MODE=off php-cs-fixer fix --show-progress=none --allow-risky=yes",
+    "qa": [
+      "@test:build",
+      "@cs:fix",
+      "@test",
+      "@stan"
+    ],
+    "stan": "XDEBUG_MODE=off phpstan analyse --no-progress --no-ansi --memory-limit=-1",
+    "test": "XDEBUG_MODE=off codecept run --report",
+    "test:build": "XDEBUG_MODE=off codecept build",
+    "test:coverage": "XDEBUG_MODE=coverage codecept run --coverage --coverage-xml=coverage.xml --xml  --report"
+  }
+}
