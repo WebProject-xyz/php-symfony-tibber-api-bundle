@@ -1,101 +1,261 @@
-# PHP Package Template
+# Tibber API Bundle for Symfony
 
-[![CI](https://github.com/WebProject-xyz/php-package-template/actions/workflows/ci.yml/badge.svg)](https://github.com/WebProject-xyz/php-package-template/actions/workflows/ci.yml)
+[![CI](https://github.com/WebProject-xyz/php-symfony-tibber-api-bundle/actions/workflows/ci.yml/badge.svg)](https://github.com/WebProject-xyz/php-symfony-tibber-api-bundle/actions/workflows/ci.yml)
 [![PHP Version](https://img.shields.io/badge/php-~8.5.0-blue.svg)](https://www.php.net/)
-[![Codeception](https://img.shields.io/badge/codeception-%5E5.3-red.svg)](https://codeception.com/)
+[![Symfony Version](https://img.shields.io/badge/symfony-%5E8.1-black.svg)](https://symfony.com/)
 [![PHPStan](https://img.shields.io/badge/phpstan-level%208-brightgreen.svg)](https://phpstan.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-> A modern, opinionated GitHub template repository for building PHP 8.5+ packages and libraries with standardized quality tooling, static analysis, and automated CI/CD workflows.
+A modern Symfony bundle integrating the [`webproject-xyz/php-tibber-api-client`](https://github.com/WebProject-xyz/php-tibber-api-client) into Symfony 8.1+ applications.
 
 ---
 
-## 📦 What's Included
+## ⚡ Features
 
-- **PHP 8.5+**: Configured with strict types (`declare(strict_types=1);`) and platform version `8.5.0`.
-- **Testing**: [Codeception 5](https://codeception.com/) Unit suite with [AI Reporter](https://github.com/WebProject-xyz/codeception-module-ai-reporter) integration for structured test output.
-- **Static Analysis**: [PHPStan](https://phpstan.org/) at **Level 8** (`phpstan.neon`).
-- **Coding Standards**: [PHP-CS-Fixer](https://cs.symfony.com/) with centralized configuration via [`webproject-xyz/php-cs-fixer-config`](https://github.com/WebProject-xyz/php-cs-fixer-config).
-- **Git Hooks**: [GrumPHP](https://github.com/phpro/grumphp) pre-commit automation running style checks, static analysis, and test suites.
-- **Continuous Integration**: Reusable GitHub Actions CI workflow with matrix testing and test coverage generation.
-- **Release Automation**: Pre-configured [Semantic Release](https://github.com/semantic-release/semantic-release) (`.releaserc`) and [Renovate](https://docs.renovatebot.com/) (`renovate.json`).
+- **Modern Architecture**: Built on Symfony 8.1+ `AbstractBundle` with strict PHP 8.5 typing.
+- **Multi-Account Support**: Configure single or multiple Tibber accounts with a configurable default.
+- **Dependency Injection & Autowiring**:
+  - Direct autowiring via `TibberClientInterface` and `TibberServiceInterface` for the default account.
+  - Native Symfony 8 `#[Target('accountName')]` and named autowiring aliases (e.g. `TibberServiceInterface $secondaryTibberService`).
+  - Runtime access via `TibberClientRegistryInterface` and `TibberServiceRegistryInterface`.
+- **Smart Caching Layer**:
+  - Optional transparent caching decorator (`CachedTibberService`) using PSR-6 cache pools.
+  - Differentiated TTLs: 24h for static metadata, interval-aligned TTL for current price, dynamic recheck for tomorrow's prices before publication (~13:00 CET), and automatic cache eviction on mutations.
+- **CLI Commands**:
+  - All Tibber commands integrated into `bin/console` with an `--account` (`-a`) option for multi-account execution.
 
 ---
 
-## 🚀 Using This Template
-
-### 1. Create a Repository from this Template
-
-Use GitHub's web interface by clicking **"Use this template"** &rarr; **"Create a new repository"**, or use the [GitHub CLI](https://cli.github.com/):
+## 📦 Installation
 
 ```bash
-gh repo create <vendor>/<package-name> --template WebProject-xyz/php-package-template --public --clone
-cd <package-name>
+composer require webproject-xyz/php-symfony-tibber-api-bundle
 ```
 
-### 2. Install Dependencies
+---
+
+## ⚙️ Configuration
+
+### 1. Minimal Setup (Shorthand)
+
+For single-account applications, place your access token directly under the root key in `config/packages/tibber_api.yaml`:
+
+```yaml
+tibber_api:
+  access_token: '%env(TIBBER_API_TOKEN)%'
+  # Optional:
+  # cache_pool: 'cache.app'
+```
+
+### 2. Multi-Account Setup
+
+```yaml
+tibber_api:
+  # Optional: Account to wire to un-targeted TibberServiceInterface (defaults to first account or 'default')
+  default_account: primary
+
+  accounts:
+    primary:
+      access_token: '%env(TIBBER_API_TOKEN_PRIMARY)%'
+      cache_pool: 'cache.app'
+      cache_ttl:
+        current_price: 180   # Override max TTL for current interval
+        today_prices: 3600
+
+    secondary:
+      access_token: '%env(TIBBER_API_TOKEN_SECONDARY)%'
+      # Caching disabled when cache_pool is omitted (default: null)
+```
+
+### 3. Full YAML Configuration Reference & Defaults
+
+The following example demonstrates all available options with their respective default values:
+
+```yaml
+tibber_api:
+  # Default account used when autowiring TibberServiceInterface / TibberClientInterface
+  # Default: 'default' or the first account defined under 'accounts'
+  default_account: ~
+
+  accounts:
+    default:
+      # Required: Personal API access token from developer.tibber.com
+      access_token: '%env(TIBBER_API_TOKEN)%'
+
+      # Tibber GraphQL endpoint URL
+      # Default: 'https://api.tibber.com/v1-beta/gql'
+      endpoint: 'https://api.tibber.com/v1-beta/gql'
+
+      # User-Agent header sent with HTTP requests
+      # Default: 'WebProject-Tibber-API-Client'
+      user_agent: 'WebProject-Tibber-API-Client'
+
+      # PSR-6 Cache pool service ID (e.g. 'cache.app', 'cache.system')
+      # When omitted or null, no caching decorator is registered for this account
+      # Default: null
+      cache_pool: ~
+
+      # Granular Cache Time-To-Live (in seconds)
+      # Only active if 'cache_pool' is configured
+      cache_ttl:
+        # User & registered homes metadata
+        # Default: 86400 (24 hours)
+        viewer: 86400
+
+        # List of homes registered to the account
+        # Default: 86400 (24 hours)
+        homes: 86400
+
+        # Single home details & subscription metadata
+        # Default: 86400 (24 hours)
+        home: 86400
+
+        # Aggregated price info (today, tomorrow, current)
+        # Default: 1800 (30 minutes)
+        # Note: If tomorrow's prices are not yet available (~before 13:00 CET), TTL is dynamically capped at 300s
+        price_info: 1800
+
+        # Array of today's hourly / 15-minute energy prices
+        # Default: 3600 (1 hour) - Cache key is date-stamped (Y-m-d)
+        today_prices: 3600
+
+        # Array of tomorrow's energy prices
+        # Default: 14400 (4 hours)
+        # Note: If tomorrow's prices are not yet published, TTL is automatically reduced to 300s
+        tomorrow_prices: 14400
+
+        # Current spot price
+        # Default: 300 (5 minutes)
+        # Note: Automatically aligned with the current interval boundary (hourly or 15-min)
+        # The effective TTL will never exceed the remaining seconds in the current interval.
+        current_price: 300
+
+        # Historical consumption data nodes
+        # Default: 3600 (1 hour)
+        consumption: 3600
+```
+
+> [!TIP]
+> **Cache Invalidation:** Calling `updateHome()` automatically invalidates the cached `home` entry and the `homes` list.
+
+---
+
+## 🚀 Usage
+
+### 1. Autowiring the Default Account
+
+Inject `TibberServiceInterface` directly:
+
+```php
+namespace App\Service;
+
+use WebProject\TibberApiClient\Service\TibberServiceInterface;
+
+class EnergyMonitor
+{
+    public function __construct(
+        private readonly TibberServiceInterface $tibber,
+    ) {
+    }
+
+    public function checkTodayPrices(string $homeId): array
+    {
+        return $this->tibber->getTodaysPrices($homeId);
+    }
+}
+```
+
+### 2. Targeting Specific Accounts (`#[Target]`)
+
+In multi-account setups, inject a specific account using Symfony 8's `#[Target]` attribute or parameter naming:
+
+```php
+namespace App\Service;
+
+use Symfony\Component\DependencyInjection\Attribute\Target;
+use WebProject\TibberApiClient\Service\TibberServiceInterface;
+
+class MultiHomeManager
+{
+    public function __construct(
+        #[Target('secondary')]
+        private readonly TibberServiceInterface $secondaryTibber,
+        // Alternatively via parameter name:
+        // private readonly TibberServiceInterface $secondaryTibberService,
+    ) {
+    }
+}
+```
+
+### 3. Dynamic Runtime Selection via Registry
+
+When account names are resolved dynamically (e.g. from user input or database entities):
+
+```php
+namespace App\Controller;
+
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use WebProject\Symfony\TibberApiBundle\Registry\TibberServiceRegistryInterface;
+
+class PriceController extends AbstractController
+{
+    public function __invoke(string $account, string $homeId, TibberServiceRegistryInterface $registry): JsonResponse
+    {
+        $service = $registry->getService($account);
+        $currentPrice = $service->getCurrentPrice($homeId);
+
+        return $this->json($currentPrice);
+    }
+}
+```
+
+---
+
+## 💻 Console Commands
+
+All commands accept the `--account` (`-a`) option to target any configured account:
 
 ```bash
-composer install
+# View account information & registered homes
+bin/console tibber:viewer --account=primary
+
+# Get today's electricity prices
+bin/console tibber:prices:today --home-id=<id>
+
+# Get tomorrow's electricity prices (available ~13:00 CET)
+bin/console tibber:prices:tomorrow
+
+# Get current electricity price
+bin/console tibber:prices:current
+
+# Query historical consumption
+bin/console tibber:consumption --home-id=<id> --resolution=HOURLY --count=24
+
+# Send push notification to Tibber mobile app
+bin/console tibber:push "Title" "Message"
+
+# Dump GraphQL introspection schema
+bin/console tibber:schema:dump --output=resources/schema.json
 ```
 
-### 3. Initialize Git Hooks
+---
 
-Initialize GrumPHP to enable pre-commit quality checks:
+## 🧪 Testing & Quality
+
+Run the complete QA test suite:
 
 ```bash
-vendor/bin/grumphp git:init
+composer qa
 ```
 
-### 4. Customize for Your Package
-
-After initializing the project, adjust the configuration to match your package:
-
-1. **`composer.json`**:
-   - Update `name`, `description`, `authors`, and `homepage`.
-   - Update the PSR-4 autoload namespaces:
-     - `WebProject\PhpPackageTemplate\` &rarr; `YourVendor\YourPackage\`
-     - `WebProject\PhpPackageTemplate\Tests\` &rarr; `YourVendor\YourPackage\Tests\`
-2. **Codeception Configuration**:
-   - Update `namespace` in `codeception.yml`.
-   - Update `suite_namespace` in `tests/Unit.suite.yml`.
-   - Update namespaces in `tests/Support/UnitTester.php` and `tests/Unit/ExampleTest.php`.
-3. **`README.md`**:
-   - Replace this template documentation with specific documentation for your package.
+Includes:
+- **Codeception Unit Suite**: `composer test`
+- **PHPStan (Level 8)**: `composer stan`
+- **PHP-CS-Fixer**: `composer cs:check` / `composer cs:fix`
 
 ---
 
-## 🛠️ Development & Quality Assurance
+## 📄 License
 
-All development scripts are defined in `composer.json` with `XDEBUG_MODE=off` (except code coverage) to maximize execution speed.
-
-### Available Composer Commands
-
-| Command | Description |
-| :--- | :--- |
-| `composer qa` | Executes the complete QA suite (`test:build`, `cs:fix`, `test`, `stan`). |
-| `composer test` | Runs the Codeception test suite (`codecept run --report`). |
-| `composer test:build` | Generates / rebuilds Codeception Actor classes (`codecept build`). |
-| `composer test:coverage` | Runs tests and generates an XML coverage report (`coverage.xml`). |
-| `composer stan` | Runs PHPStan static analysis at Level 8 without progress bars. |
-| `composer cs:check` | Checks coding standards with PHP-CS-Fixer in dry-run mode showing diffs. |
-| `composer cs:fix` | Automatically fixes code styling violations with PHP-CS-Fixer. |
-
----
-
-## 🤝 Contributing
-
-Please see [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines, pull request processes, and branch naming conventions.
-
----
-
-## 📜 License
-
-Distributed under the **MIT** License. See `LICENSE` for details.
-
----
-
-## ✉️ Support & Contact
-
-- **Issues:** [GitHub Issue Tracker](https://github.com/WebProject-xyz/php-package-template/issues)
-- **Website:** [webproject.xyz](https://www.webproject.xyz)
+This bundle is open-sourced software licensed under the [MIT License](LICENSE).

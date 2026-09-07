@@ -1,0 +1,117 @@
+<?php
+
+declare(strict_types=1);
+
+namespace WebProject\Symfony\TibberApiBundle\DependencyInjection\Compiler;
+
+use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
+use Symfony\Component\DependencyInjection\Compiler\ServiceLocatorTagPass;
+use Symfony\Component\DependencyInjection\Container;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Reference;
+use WebProject\TibberApiClient\Client\TibberClientInterface;
+use WebProject\TibberApiClient\Service\TibberServiceInterface;
+
+use function array_keys;
+use function is_string;
+use function lcfirst;
+use function sprintf;
+
+class TibberRegistryPass implements CompilerPassInterface
+{
+    public const CLIENT_TAG  = 'tibber_api.client';
+    public const SERVICE_TAG = 'tibber_api.service';
+
+    public function process(ContainerBuilder $container): void
+    {
+        $clientMap  = [];
+        $serviceMap = [];
+
+        // Collect all tagged clients
+        $taggedClients = $container->findTaggedServiceIds(self::CLIENT_TAG);
+        foreach ($taggedClients as $id => $tags) {
+            foreach ($tags as $attributes) {
+                $account = $attributes['account'] ?? null;
+                if (is_string($account) && '' !== $account) {
+                    $clientMap[$account] = new Reference($id);
+
+                    // Register named autowiring and #[Target] aliases
+                    $camelCase = lcfirst(Container::camelize($account));
+                    $aliases   = [
+                        sprintf('%s $%sTibberClient', TibberClientInterface::class, $camelCase),
+                        sprintf('%s $%s', TibberClientInterface::class, $camelCase),
+                        sprintf('%s $%s', TibberClientInterface::class, $account),
+                        sprintf('%s $%sTibberClient', TibberClientInterface::class, $account),
+                    ];
+                    foreach ($aliases as $alias) {
+                        if (!$container->hasAlias($alias)) {
+                            $container->setAlias($alias, $id)->setPublic(false);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Collect all tagged services
+        $taggedServices = $container->findTaggedServiceIds(self::SERVICE_TAG);
+        foreach ($taggedServices as $id => $tags) {
+            foreach ($tags as $attributes) {
+                $account = $attributes['account'] ?? null;
+                if (is_string($account) && '' !== $account) {
+                    $serviceMap[$account] = new Reference($id);
+
+                    // Register named autowiring and #[Target] aliases
+                    $camelCase = lcfirst(Container::camelize($account));
+                    $aliases   = [
+                        sprintf('%s $%sTibberService', TibberServiceInterface::class, $camelCase),
+                        sprintf('%s $%s', TibberServiceInterface::class, $camelCase),
+                        sprintf('%s $%s', TibberServiceInterface::class, $account),
+                        sprintf('%s $%sTibberService', TibberServiceInterface::class, $account),
+                    ];
+                    foreach ($aliases as $alias) {
+                        if (!$container->hasAlias($alias)) {
+                            $container->setAlias($alias, $id)->setPublic(false);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Resolve default account
+        $defaultAccount = 'default';
+        if ($container->hasParameter('tibber_api.default_account')) {
+            $param = $container->getParameter('tibber_api.default_account');
+            if (is_string($param) && '' !== $param) {
+                $defaultAccount = $param;
+            }
+        }
+
+        // Configure default autowiring aliases if matching service exists
+        $defaultClientId  = sprintf('tibber_api.client.%s', $defaultAccount);
+        $defaultServiceId = sprintf('tibber_api.service.%s', $defaultAccount);
+
+        if ($container->hasDefinition($defaultClientId) && !$container->hasAlias(TibberClientInterface::class)) {
+            $container->setAlias(TibberClientInterface::class, $defaultClientId)->setPublic(false);
+        }
+
+        if ($container->hasDefinition($defaultServiceId) && !$container->hasAlias(TibberServiceInterface::class)) {
+            $container->setAlias(TibberServiceInterface::class, $defaultServiceId)->setPublic(false);
+        }
+
+        // Configure Client Registry
+        if ($container->hasDefinition('tibber_api.client_registry')) {
+            $clientLocatorRef = ServiceLocatorTagPass::register($container, $clientMap);
+            $clientRegistry   = $container->getDefinition('tibber_api.client_registry');
+            $clientRegistry->setArgument(0, $clientLocatorRef);
+            $clientRegistry->setArgument(2, array_keys($clientMap));
+        }
+
+        // Configure Service Registry
+        if ($container->hasDefinition('tibber_api.service_registry')) {
+            $serviceLocatorRef = ServiceLocatorTagPass::register($container, $serviceMap);
+            $serviceRegistry   = $container->getDefinition('tibber_api.service_registry');
+            $serviceRegistry->setArgument(0, $serviceLocatorRef);
+            $serviceRegistry->setArgument(2, array_keys($serviceMap));
+        }
+    }
+}

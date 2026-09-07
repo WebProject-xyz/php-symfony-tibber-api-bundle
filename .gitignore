@@ -6,3 +6,4 @@ vendor/
 GEMINI.md
 CLAUDE.md
 .php-cs-fixer.cache
+.env.local

@@ -1,4 +1,4 @@
-# Contributing to PHP Package Template
+# Contributing to Tibber API Bundle
 
 First off, thank you for considering contributing to this project! It's people like you who make the open-source community such an amazing place to learn, inspire, and create.
 
@@ -9,8 +9,8 @@ To get started with development, you'll need to have PHP 8.5+ and Composer insta
 1.  **Fork the repository** on GitHub.
 2.  **Clone your fork** locally:
     ```bash
-    git clone https://github.com/your-username/php-package-template.git
-    cd php-package-template
+    git clone https://github.com/your-username/php-symfony-tibber-api-bundle.git
+    cd php-symfony-tibber-api-bundle
     ```
 3.  **Install dependencies**:
     ```bash
