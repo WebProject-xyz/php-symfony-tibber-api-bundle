@@ -1,4 +1,4 @@
-namespace: WebProject\PhpPackageTemplate\Tests
+namespace: WebProject\Symfony\TibberApiBundle\Tests
 support_namespace: Support
 paths:
     tests: tests

@@ -1,5 +1,5 @@
 {
-  "name": "webproject-xyz/php-package-template",
+  "name": "webproject-xyz/php-symfony-tibber-api-bundle",
   "description": "php-package-description",
   "license": "MIT",
   "type": "library",
@@ -26,12 +26,12 @@
   },
   "autoload": {
     "psr-4": {
-      "WebProject\\PhpPackageTemplate\\": "src/"
+      "WebProject\\Symfony\\TibberApiBundle\\": "src/"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "WebProject\\PhpPackageTemplate\\Tests\\": "tests/"
+      "WebProject\\Symfony\\TibberApiBundle\\Tests\\": "tests/"
     }
   },
   "config": {

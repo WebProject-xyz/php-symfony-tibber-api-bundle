@@ -1,5 +1,5 @@
 actor: UnitTester
-suite_namespace: WebProject\PhpPackageTemplate\Tests\Unit
+suite_namespace: WebProject\Symfony\TibberApiBundle\Tests\Unit
 modules:
     # enable helpers as array
     enabled: []

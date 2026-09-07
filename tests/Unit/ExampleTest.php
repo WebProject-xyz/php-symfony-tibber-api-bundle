@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
 
-namespace WebProject\PhpPackageTemplate\Tests\Unit;
+namespace WebProject\Symfony\TibberApiBundle\Tests\Unit;
 
-use WebProject\PhpPackageTemplate\Tests\Support\UnitTester;
+use WebProject\Symfony\TibberApiBundle\Tests\Support\UnitTester;
 
 class ExampleTest extends \Codeception\Test\Unit
 {
