@@ -23,7 +23,7 @@ use WebProject\Symfony\TibberApiBundle\TibberApiBundle;
 use WebProject\TibberApiClient\Client\TibberClientInterface;
 use WebProject\TibberApiClient\Service\TibberServiceInterface;
 
-class BundleConfigurationTest extends Unit
+class TibberApiBundleTest extends Unit
 {
     public function testBundleMetadataAndBuild(): void
     {

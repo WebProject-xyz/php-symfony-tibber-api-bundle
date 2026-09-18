@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WebProject\Symfony\TibberApiBundle\Tests\Unit;
+namespace WebProject\Symfony\TibberApiBundle\Tests\Unit\DependencyInjection\Compiler;
 
 use Codeception\Test\Unit;
 use Symfony\Component\DependencyInjection\ContainerBuilder;

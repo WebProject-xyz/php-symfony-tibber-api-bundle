@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WebProject\Symfony\TibberApiBundle\Tests\Unit;
+namespace WebProject\Symfony\TibberApiBundle\Tests\Unit\Service;
 
 use Codeception\Test\Unit;
 use DateTimeImmutable;
