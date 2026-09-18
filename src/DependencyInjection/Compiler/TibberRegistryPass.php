@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WebProject\Symfony\TibberApiBundle\DependencyInjection\Compiler;
 
+use InvalidArgumentException;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\Compiler\ServiceLocatorTagPass;
 use Symfony\Component\DependencyInjection\Container;
@@ -13,9 +14,11 @@ use WebProject\TibberApiClient\Client\TibberClientInterface;
 use WebProject\TibberApiClient\Service\TibberServiceInterface;
 
 use function array_keys;
+use function implode;
 use function is_string;
 use function lcfirst;
 use function sprintf;
+use function str_replace;
 
 class TibberRegistryPass implements CompilerPassInterface
 {
@@ -31,13 +34,18 @@ class TibberRegistryPass implements CompilerPassInterface
         $taggedClients = $container->findTaggedServiceIds(self::CLIENT_TAG);
         foreach ($taggedClients as $id => $tags) {
             foreach ($tags as $attributes) {
-                $account = $attributes['account'] ?? null;
-                if (is_string($account) && '' !== $account) {
+                $account = isset($attributes['account']) ? (string) $attributes['account'] : null;
+                if (null !== $account && '' !== $account) {
+                    if (isset($clientMap[$account])) {
+                        throw new InvalidArgumentException(sprintf('Duplicate Tibber client registered for account "%s" (conflicting service ID: "%s").', $account, $id));
+                    }
+
                     $clientMap[$account] = new Reference($id);
 
                     // Register named autowiring and #[Target] aliases
-                    $camelCase = lcfirst(Container::camelize($account));
-                    $aliases   = [
+                    $normalized = str_replace('-', '_', $account);
+                    $camelCase  = lcfirst(Container::camelize($normalized));
+                    $aliases    = [
                         sprintf('%s $%sTibberClient', TibberClientInterface::class, $camelCase),
                         sprintf('%s $%s', TibberClientInterface::class, $camelCase),
                         sprintf('%s $%s', TibberClientInterface::class, $account),
@@ -56,13 +64,18 @@ class TibberRegistryPass implements CompilerPassInterface
         $taggedServices = $container->findTaggedServiceIds(self::SERVICE_TAG);
         foreach ($taggedServices as $id => $tags) {
             foreach ($tags as $attributes) {
-                $account = $attributes['account'] ?? null;
-                if (is_string($account) && '' !== $account) {
+                $account = isset($attributes['account']) ? (string) $attributes['account'] : null;
+                if (null !== $account && '' !== $account) {
+                    if (isset($serviceMap[$account])) {
+                        throw new InvalidArgumentException(sprintf('Duplicate Tibber service registered for account "%s" (conflicting service ID: "%s").', $account, $id));
+                    }
+
                     $serviceMap[$account] = new Reference($id);
 
                     // Register named autowiring and #[Target] aliases
-                    $camelCase = lcfirst(Container::camelize($account));
-                    $aliases   = [
+                    $normalized = str_replace('-', '_', $account);
+                    $camelCase  = lcfirst(Container::camelize($normalized));
+                    $aliases    = [
                         sprintf('%s $%sTibberService', TibberServiceInterface::class, $camelCase),
                         sprintf('%s $%s', TibberServiceInterface::class, $camelCase),
                         sprintf('%s $%s', TibberServiceInterface::class, $account),
@@ -84,6 +97,10 @@ class TibberRegistryPass implements CompilerPassInterface
             if (is_string($param) && '' !== $param) {
                 $defaultAccount = $param;
             }
+        }
+
+        if ([] !== $serviceMap && !isset($serviceMap[$defaultAccount])) {
+            throw new InvalidArgumentException(sprintf('The configured default Tibber account "%s" does not match any registered service accounts ("%s").', $defaultAccount, implode('", "', array_keys($serviceMap))));
         }
 
         // Configure default autowiring aliases if matching service exists

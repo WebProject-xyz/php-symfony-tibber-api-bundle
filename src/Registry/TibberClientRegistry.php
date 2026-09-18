@@ -18,7 +18,7 @@ class TibberClientRegistry implements TibberClientRegistryInterface
      * @param array<string> $clientNames
      */
     public function __construct(
-        private readonly ContainerInterface $locator,
+        private readonly ?ContainerInterface $locator,
         private readonly string $defaultClientName,
         private readonly array $clientNames = [],
     ) {
@@ -28,7 +28,7 @@ class TibberClientRegistry implements TibberClientRegistryInterface
     {
         $target = $name ?? $this->defaultClientName;
 
-        if (!$this->locator->has($target)) {
+        if (null === $this->locator || !$this->locator->has($target)) {
             throw new InvalidArgumentException(sprintf('Tibber client for account "%s" not found. Available accounts: "%s".', $target, implode('", "', $this->getClientNames())));
         }
 
@@ -40,7 +40,7 @@ class TibberClientRegistry implements TibberClientRegistryInterface
 
     public function hasClient(string $name): bool
     {
-        return $this->locator->has($name);
+        return null !== $this->locator && $this->locator->has($name);
     }
 
     /**
@@ -52,7 +52,7 @@ class TibberClientRegistry implements TibberClientRegistryInterface
             return $this->clientNames;
         }
 
-        if (method_exists($this->locator, 'getProvidedServices')) {
+        if (null !== $this->locator && method_exists($this->locator, 'getProvidedServices')) {
             /** @var array<string, string> $provided */
             $provided = $this->locator->getProvidedServices();
 

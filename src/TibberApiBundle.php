@@ -69,8 +69,16 @@ class TibberApiBundle extends AbstractBundle
                     ];
                 })
             ->end()
+            ->validate()
+                ->ifTrue(static fn (mixed $v): bool => is_array($v) && (!isset($v['accounts']) || [] === $v['accounts']))
+                ->thenInvalid('You must configure at least one account under "tibber_api.accounts" or provide "tibber_api.access_token".')
+            ->end()
+            ->validate()
+                ->ifTrue(static fn (mixed $v): bool => is_array($v) && isset($v['default_account'], $v['accounts']) && !isset($v['accounts'][$v['default_account']]))
+                ->thenInvalid('The configured default_account does not exist in the configured accounts.')
+            ->end()
             ->children()
-                ->scalarNode('default_account')->defaultNull()->end()
+                ->scalarNode('default_account')->defaultNull()->cannotBeEmpty()->end()
                 ->arrayNode('accounts')
                     ->useAttributeAsKey('name')
                     ->requiresAtLeastOneElement()
@@ -91,7 +99,7 @@ class TibberApiBundle extends AbstractBundle
                                     ->integerNode('tomorrow_prices')->defaultValue(CachedTibberService::DEFAULT_TTL_TOMORROW_PRICES)->min(0)->end()
                                     ->integerNode('current_price')->defaultValue(CachedTibberService::DEFAULT_TTL_CURRENT_PRICE)->min(0)->end()
                                     ->integerNode('consumption')->defaultValue(CachedTibberService::DEFAULT_TTL_CONSUMPTION)->min(0)->end()
-                                ->end()
+                                 ->end()
                             ->end()
                         ->end()
                     ->end()
@@ -123,7 +131,7 @@ class TibberApiBundle extends AbstractBundle
 
         // Register Registry Definitions (wired dynamically in TibberRegistryPass)
         $clientRegistryDef = new Definition(TibberClientRegistry::class, [
-            new Reference('service_container'),
+            null,
             $defaultAccount,
             $accountNames,
         ]);
@@ -133,7 +141,7 @@ class TibberApiBundle extends AbstractBundle
         $builder->setAlias(TibberClientRegistry::class, 'tibber_api.client_registry')->setPublic(false);
 
         $serviceRegistryDef = new Definition(TibberServiceRegistry::class, [
-            new Reference('service_container'),
+            null,
             $defaultAccount,
             $accountNames,
         ]);

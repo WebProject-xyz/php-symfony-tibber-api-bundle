@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WebProject\Symfony\TibberApiBundle\Tests\Unit;
 
 use Codeception\Test\Unit;
+use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\Definition\Processor;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
@@ -177,5 +178,46 @@ class BundleConfigurationTest extends Unit
         self::assertTrue($container->hasDefinition(ViewerCommand::class));
         self::assertTrue($container->hasDefinition(TodayPricesCommand::class));
         self::assertTrue($container->getDefinition(ViewerCommand::class)->hasTag('console.command'));
+    }
+
+    public function testConfigurationThrowsExceptionWhenEmpty(): void
+    {
+        $bundle    = new TibberApiBundle();
+        $container = new ContainerBuilder();
+        $extension = $bundle->getContainerExtension();
+        self::assertInstanceOf(ConfigurationExtensionInterface::class, $extension);
+
+        $configuration = $extension->getConfiguration([], $container);
+        self::assertNotNull($configuration);
+
+        $processor = new Processor();
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('You must configure at least one account');
+
+        $processor->processConfiguration($configuration, [[]]);
+    }
+
+    public function testConfigurationThrowsExceptionWhenDefaultAccountDoesNotExist(): void
+    {
+        $bundle    = new TibberApiBundle();
+        $container = new ContainerBuilder();
+        $extension = $bundle->getContainerExtension();
+        self::assertInstanceOf(ConfigurationExtensionInterface::class, $extension);
+
+        $configuration = $extension->getConfiguration([], $container);
+        self::assertNotNull($configuration);
+
+        $processor = new Processor();
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('The configured default_account does not exist in the configured accounts.');
+
+        $processor->processConfiguration($configuration, [[
+            'default_account' => 'non_existent',
+            'accounts'        => [
+                'primary' => ['access_token' => 'token'],
+            ],
+        ]]);
     }
 }

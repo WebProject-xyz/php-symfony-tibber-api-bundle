@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WebProject\Symfony\TibberApiBundle\Service;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use Psr\Cache\CacheItemPoolInterface;
 use WebProject\TibberApiClient\Model\ConsumptionNode;
 use WebProject\TibberApiClient\Model\Enum\AppScreen;
@@ -20,6 +22,9 @@ use WebProject\TibberApiClient\Service\TibberServiceInterface;
 use function max;
 use function md5;
 use function min;
+use function sprintf;
+use function strlen;
+use function substr;
 use function time;
 
 class CachedTibberService implements TibberServiceInterface
@@ -89,7 +94,7 @@ class CachedTibberService implements TibberServiceInterface
 
     public function getHome(string $homeId): ?Home
     {
-        $key  = $this->cachePrefix . 'home_' . md5($homeId);
+        $key  = $this->buildKey('home', $homeId);
         $item = $this->cache->getItem($key);
 
         if ($item->isHit()) {
@@ -109,7 +114,7 @@ class CachedTibberService implements TibberServiceInterface
 
     public function getPriceInfo(string $homeId, PriceResolution $resolution = PriceResolution::HOURLY): ?PriceInfo
     {
-        $key  = $this->cachePrefix . 'price_info_' . md5($homeId) . '_' . $resolution->value . '_' . date('Y-m-d');
+        $key  = $this->buildKey('price_info', $homeId . '_' . $resolution->value . '_' . $this->getMarketDate());
         $item = $this->cache->getItem($key);
 
         if ($item->isHit()) {
@@ -122,12 +127,21 @@ class CachedTibberService implements TibberServiceInterface
         $priceInfo = $this->inner->getPriceInfo($homeId, $resolution);
         $item->set($priceInfo);
 
-        // If tomorrow's prices are not yet included, recheck after 5 minutes
-        $ttl = (null !== $priceInfo && [] === $priceInfo->tomorrow)
-            ? 300
-            : ($this->ttlConfig['price_info'] ?? self::DEFAULT_TTL_PRICE_INFO);
+        $configuredTtl    = $this->ttlConfig['price_info'] ?? self::DEFAULT_TTL_PRICE_INFO;
+        $intervalSeconds  = PriceResolution::QUARTER_HOURLY === $resolution ? 900 : 3600;
+        $secondsRemaining = $intervalSeconds - (time() % $intervalSeconds);
 
-        $item->expiresAfter($ttl);
+        if (0 === $configuredTtl) {
+            $item->expiresAfter(0);
+        } else {
+            // If tomorrow's prices are not yet included, recheck after 5 minutes
+            $ttl = (null !== $priceInfo && [] === $priceInfo->tomorrow)
+                ? min(300, $secondsRemaining)
+                : min($configuredTtl, $secondsRemaining);
+
+            $item->expiresAfter(max(10, $ttl));
+        }
+
         $this->cache->save($item);
 
         return $priceInfo;
@@ -137,7 +151,7 @@ class CachedTibberService implements TibberServiceInterface
     {
         $intervalSeconds   = PriceResolution::QUARTER_HOURLY === $resolution ? 900 : 3600;
         $intervalTimestamp = time() - (time() % $intervalSeconds);
-        $key               = $this->cachePrefix . 'current_price_' . md5($homeId) . '_' . $resolution->value . '_' . $intervalTimestamp;
+        $key               = $this->buildKey('current_price', $homeId . '_' . $resolution->value . '_' . $intervalTimestamp);
         $item              = $this->cache->getItem($key);
 
         if ($item->isHit()) {
@@ -151,11 +165,15 @@ class CachedTibberService implements TibberServiceInterface
         $item->set($price);
 
         // Expire gracefully at the end of the current pricing interval (15 min or 60 min)
-        $configuredTtl    = $this->ttlConfig['current_price'] ?? self::DEFAULT_TTL_CURRENT_PRICE;
-        $secondsRemaining = $intervalSeconds - (time() % $intervalSeconds);
-        $effectiveTtl     = max(10, min($configuredTtl, $secondsRemaining));
+        $configuredTtl = $this->ttlConfig['current_price'] ?? self::DEFAULT_TTL_CURRENT_PRICE;
+        if (0 === $configuredTtl) {
+            $item->expiresAfter(0);
+        } else {
+            $secondsRemaining = $intervalSeconds - (time() % $intervalSeconds);
+            $effectiveTtl     = max(10, min($configuredTtl, $secondsRemaining));
+            $item->expiresAfter($effectiveTtl);
+        }
 
-        $item->expiresAfter($effectiveTtl);
         $this->cache->save($item);
 
         return $price;
@@ -166,7 +184,7 @@ class CachedTibberService implements TibberServiceInterface
      */
     public function getTodaysPrices(string $homeId, PriceResolution $resolution = PriceResolution::HOURLY): array
     {
-        $key  = $this->cachePrefix . 'today_prices_' . md5($homeId) . '_' . $resolution->value . '_' . date('Y-m-d');
+        $key  = $this->buildKey('today_prices', $homeId . '_' . $resolution->value . '_' . $this->getMarketDate());
         $item = $this->cache->getItem($key);
 
         if ($item->isHit()) {
@@ -189,7 +207,7 @@ class CachedTibberService implements TibberServiceInterface
      */
     public function getTomorrowsPrices(string $homeId, PriceResolution $resolution = PriceResolution::HOURLY): array
     {
-        $key  = $this->cachePrefix . 'tomorrow_prices_' . md5($homeId) . '_' . $resolution->value . '_' . date('Y-m-d');
+        $key  = $this->buildKey('tomorrow_prices', $homeId . '_' . $resolution->value . '_' . $this->getMarketDate());
         $item = $this->cache->getItem($key);
 
         if ($item->isHit()) {
@@ -218,8 +236,9 @@ class CachedTibberService implements TibberServiceInterface
      */
     public function getConsumption(string $homeId, EnergyResolution $resolution, int $lastCount): array
     {
-        $key  = $this->cachePrefix . 'consumption_' . md5($homeId) . '_' . $resolution->value . '_' . $lastCount;
-        $item = $this->cache->getItem($key);
+        $hourBucket = (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->format('Y-m-d-H');
+        $key        = $this->buildKey('consumption', $homeId . '_' . $resolution->value . '_' . $lastCount . '_' . $hourBucket);
+        $item       = $this->cache->getItem($key);
 
         if ($item->isHit()) {
             /** @var array<ConsumptionNode> $consumption */
@@ -245,10 +264,11 @@ class CachedTibberService implements TibberServiceInterface
     {
         $home = $this->inner->updateHome($input);
 
-        // Invalidate cached home and homes list
+        // Invalidate cached home, homes list, and viewer
         $this->cache->deleteItems([
-            $this->cachePrefix . 'home_' . md5($input->homeId),
+            $this->buildKey('home', $input->homeId),
             $this->cachePrefix . 'homes',
+            $this->cachePrefix . 'viewer',
         ]);
 
         return $home;
@@ -257,5 +277,21 @@ class CachedTibberService implements TibberServiceInterface
     public function getInnerService(): TibberServiceInterface
     {
         return $this->inner;
+    }
+
+    private function getMarketDate(): string
+    {
+        return (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->format('Y-m-d');
+    }
+
+    private function buildKey(string $type, string $discriminator): string
+    {
+        $key = sprintf('%s%s_%s', $this->cachePrefix, $type, substr(md5($discriminator), 0, 16));
+
+        if (strlen($key) > 64) {
+            return substr($this->cachePrefix, 0, 32) . $type . '_' . substr(md5($discriminator), 0, 16);
+        }
+
+        return $key;
     }
 }

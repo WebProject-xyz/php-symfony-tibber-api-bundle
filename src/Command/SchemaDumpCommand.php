@@ -6,7 +6,6 @@ namespace WebProject\Symfony\TibberApiBundle\Command;
 
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use WebProject\Symfony\TibberApiBundle\Registry\TibberClientRegistryInterface;
@@ -18,11 +17,9 @@ use function dirname;
 use function file_put_contents;
 use function is_array;
 use function is_dir;
-use function is_string;
 use function json_encode;
 use function mkdir;
 use function sprintf;
-use function trim;
 
 use const JSON_PRETTY_PRINT;
 use const JSON_THROW_ON_ERROR;
@@ -34,6 +31,7 @@ use const JSON_UNESCAPED_SLASHES;
 )]
 class SchemaDumpCommand extends BaseSchemaDumpCommand
 {
+    use AccountOptionTrait;
     private const INTROSPECTION_QUERY = <<<'GRAPHQL'
         query IntrospectionQuery {
           __schema {
@@ -117,31 +115,14 @@ class SchemaDumpCommand extends BaseSchemaDumpCommand
     protected function configure(): void
     {
         parent::configure();
-        $this->addOption(
-            'account',
-            'a',
-            InputOption::VALUE_REQUIRED,
-            'Tibber account name configured in tibber_api.yaml (defaults to default_account)',
-        );
+        $this->addAccountOption();
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
 
-        /** @var string|null $account */
-        $account = $input->getOption('account');
-
-        /** @var string|null $token */
-        $token = $input->getOption('token');
-
-        if (is_string($account) && '' !== trim($account)) {
-            $client = $this->clientRegistry->getClient($account);
-        } elseif (is_string($token) && '' !== trim($token)) {
-            $client = new TibberClient($token);
-        } else {
-            $client = $this->clientRegistry->getClient();
-        }
+        $client = $this->resolveClient($input, $this->clientRegistry);
 
         $outputPath = (string) $input->getOption('output');
 
@@ -153,11 +134,17 @@ class SchemaDumpCommand extends BaseSchemaDumpCommand
         $json = json_encode(['data' => $data], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 
         $dir = dirname($outputPath);
-        if (!is_dir($dir) && '.' !== $dir) {
-            mkdir($dir, 0o755, true);
+        if (!is_dir($dir) && '.' !== $dir && !@mkdir($dir, 0o755, true) && !is_dir($dir)) {
+            $io->error(sprintf('Failed to create directory "%s" for schema dump.', $dir));
+
+            return self::FAILURE;
         }
 
-        file_put_contents($outputPath, $json);
+        if (false === @file_put_contents($outputPath, $json)) {
+            $io->error(sprintf('Failed to write schema introspection to "%s". Check file permissions.', $outputPath));
+
+            return self::FAILURE;
+        }
 
         $typeCount = isset($data['__schema']['types']) && is_array($data['__schema']['types']) ? count($data['__schema']['types']) : 0;
 

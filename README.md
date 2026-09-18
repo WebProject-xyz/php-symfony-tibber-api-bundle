@@ -20,9 +20,11 @@ A modern Symfony bundle integrating the [`webproject-xyz/php-tibber-api-client`]
   - Runtime access via `TibberClientRegistryInterface` and `TibberServiceRegistryInterface`.
 - **Smart Caching Layer**:
   - Optional transparent caching decorator (`CachedTibberService`) using PSR-6 cache pools.
-  - Differentiated TTLs: 24h for static metadata, interval-aligned TTL for current price, dynamic recheck for tomorrow's prices before publication (~13:00 CET), and automatic cache eviction on mutations.
+  - Market timezone-aware (`Europe/Berlin`) date keys preventing midnight rollover data corruption on UTC servers.
+  - PSR-6 key safety: keys are guaranteed <= 64 characters across all account names.
+  - Differentiated TTLs: 24h for static metadata, interval-aligned TTL for current price, dynamic recheck for tomorrow's prices before publication (~13:00 CET), and complete cache eviction on mutations (`home`, `homes`, `viewer`).
 - **CLI Commands**:
-  - All Tibber commands integrated into `bin/console` with an `--account` (`-a`) option for multi-account execution.
+  - All Tibber commands integrated into `bin/console` with an `--account` (`-a`) option and robust error boundaries (graceful console errors for auth, rate limit, and network exceptions).
 
 ---
 
@@ -116,11 +118,11 @@ tibber_api:
         price_info: 1800
 
         # Array of today's hourly / 15-minute energy prices
-        # Default: 3600 (1 hour) - Cache key is date-stamped (Y-m-d)
+        # Default: 3600 (1 hour) - Cache key is date-stamped in Europe/Berlin market time
         today_prices: 3600
 
         # Array of tomorrow's energy prices
-        # Default: 14400 (4 hours)
+        # Default: 14400 (4 hours) - Cache key is date-stamped in Europe/Berlin market time
         # Note: If tomorrow's prices are not yet published, TTL is automatically reduced to 300s
         tomorrow_prices: 14400
 
@@ -136,7 +138,7 @@ tibber_api:
 ```
 
 > [!TIP]
-> **Cache Invalidation:** Calling `updateHome()` automatically invalidates the cached `home` entry and the `homes` list.
+> **Cache Invalidation:** Calling `updateHome()` automatically invalidates the cached `home` entry, the `homes` collection, and the `viewer` metadata.
 
 ---
 
@@ -242,17 +244,23 @@ bin/console tibber:schema:dump --output=resources/schema.json
 ---
 
 ## 🧪 Testing & Quality
-
-Run the complete QA test suite:
+ 
+Run the complete QA test gate:
 
 ```bash
 composer qa
 ```
 
-Includes:
-- **Codeception Unit Suite**: `composer test`
-- **PHPStan (Level 8)**: `composer stan`
+The QA gate comprises:
+- **Codeception Unit Suite**: `composer test` (automatically generates AI reports in `tests/_output/ai-report.json` and `tests/_output/ai-report.txt` via `--report`)
+- **PHPStan (Level max)**: `composer stan`
 - **PHP-CS-Fixer**: `composer cs:check` / `composer cs:fix`
+
+To generate a full code coverage report:
+
+```bash
+composer test:coverage
+```
 
 ---
 

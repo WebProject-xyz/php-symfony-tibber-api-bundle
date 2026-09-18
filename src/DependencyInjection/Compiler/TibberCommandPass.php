@@ -29,30 +29,35 @@ class TibberCommandPass implements CompilerPassInterface
             return;
         }
 
-        if (!$container->hasDefinition('tibber_api.service_registry') && !$container->hasDefinition('tibber_api.client_registry')) {
-            return;
-        }
-
-        $commands = [
+        $serviceCommands = [
             ViewerCommand::class           => [new Reference(TibberServiceRegistryInterface::class)],
             TodayPricesCommand::class      => [new Reference(TibberServiceRegistryInterface::class)],
             TomorrowPricesCommand::class   => [new Reference(TibberServiceRegistryInterface::class)],
             CurrentPriceCommand::class     => [new Reference(TibberServiceRegistryInterface::class)],
             ConsumptionCommand::class      => [new Reference(TibberServiceRegistryInterface::class)],
             PushNotificationCommand::class => [new Reference(TibberServiceRegistryInterface::class)],
-            SchemaDumpCommand::class       => [new Reference(TibberClientRegistryInterface::class)],
         ];
 
-        foreach ($commands as $commandClass => $arguments) {
-            if ($container->hasDefinition($commandClass)) {
-                continue;
-            }
+        if ($container->hasDefinition('tibber_api.service_registry')) {
+            foreach ($serviceCommands as $commandClass => $arguments) {
+                if ($container->hasDefinition($commandClass)) {
+                    continue;
+                }
 
-            $commandDef = new Definition($commandClass, $arguments);
+                $commandDef = new Definition($commandClass, $arguments);
+                $commandDef->addTag('console.command');
+                $commandDef->setPublic(false);
+
+                $container->setDefinition($commandClass, $commandDef);
+            }
+        }
+
+        if ($container->hasDefinition('tibber_api.client_registry') && !$container->hasDefinition(SchemaDumpCommand::class)) {
+            $commandDef = new Definition(SchemaDumpCommand::class, [new Reference(TibberClientRegistryInterface::class)]);
             $commandDef->addTag('console.command');
             $commandDef->setPublic(false);
 
-            $container->setDefinition($commandClass, $commandDef);
+            $container->setDefinition(SchemaDumpCommand::class, $commandDef);
         }
     }
 }

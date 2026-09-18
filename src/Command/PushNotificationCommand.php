@@ -12,7 +12,7 @@ use WebProject\TibberApiClient\Service\TibberServiceInterface;
 
 #[AsCommand(
     name: 'tibber:push',
-    description: 'Send a push notification to the authenticated user Tibber mobile app',
+    description: "Send a push notification to the authenticated account's Tibber mobile app",
 )]
 class PushNotificationCommand extends BasePushNotificationCommand
 {
