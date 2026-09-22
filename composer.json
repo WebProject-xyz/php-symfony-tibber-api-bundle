@@ -18,7 +18,7 @@
     "symfony/console": "^8.1.7",
     "symfony/dependency-injection": "^8.1.7",
     "symfony/http-kernel": "^8.1.7",
-    "webproject-xyz/php-tibber-api-client": "^1.0"
+    "webproject-xyz/php-tibber-api-client": "^1.0.1"
   },
   "require-dev": {
     "codeception/codeception": "^5.3.5",
