@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file. See
 [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 1.0.0 (2026-09-22)
+
+### Features
+
+* implement Symfony 8 TibberApiBundle with multi-account support, compiler passes, and smart caching ([3bf3f63](https://github.com/WebProject-xyz/php-symfony-tibber-api-bundle/commit/3bf3f63a03c8bf95d8106ca159d31890de635685))
+
+### Bug Fixes
+
+* **deps:** update and bump deps ([3a1e56c](https://github.com/WebProject-xyz/php-symfony-tibber-api-bundle/commit/3a1e56ceb479ae8433da3f33928a54cdcf9ae3b1))
+* **deps:** update and bump deps ([3731996](https://github.com/WebProject-xyz/php-symfony-tibber-api-bundle/commit/3731996a46bbbb03b874cd52e349f4a2d231f3b3))
+* resolve caching timezone, key lengths, invalidation, and CLI error boundaries ([5878606](https://github.com/WebProject-xyz/php-symfony-tibber-api-bundle/commit/58786069f2426e428215f5ba8f8f08f85d80edb9))
+
 ## [1.0.3](https://github.com/WebProject-xyz/php-package-template/compare/1.0.2...1.0.3) (2026-09-07)
 
 ### Bug Fixes
